@@ -1,4 +1,4 @@
-package config
+package components
 
 const (
 	BASE_URL   = "https://login.weixin.qq.com"
