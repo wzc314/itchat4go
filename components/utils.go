@@ -2,6 +2,7 @@ package components
 
 import (
 	"net/url"
+	"time"
 )
 
 func GetParams(data map[string]string) string {
@@ -16,4 +17,8 @@ func CheckErr(e error) {
 	if e != nil {
 		panic(e)
 	}
+}
+
+func GetTimestamp() int64 {
+	return time.Now().UnixNano() / 1000000
 }

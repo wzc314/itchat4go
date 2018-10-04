@@ -2,11 +2,18 @@ package main
 
 import (
 	"fmt"
-	"itchat4go/components"
+	c "itchat4go/components"
 )
 
 func main() {
-	uuid, err := components.GetQRuuid()
-	components.CheckErr(err)
-	fmt.Println(uuid)
+	uuid, err := c.GetQRuuid()
+	c.CheckErr(err)
+	fmt.Println("Got the uuid of QR code: " + uuid)
+
+	fmt.Println("Downloading QR code.")
+	err = c.GetQR(uuid)
+	c.CheckErr(err)
+
+	fmt.Println("Please scan the QR code to log in.")
+	fmt.Printf("%d", c.CheckLogin(uuid))
 }
