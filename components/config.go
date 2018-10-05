@@ -24,4 +24,6 @@ var (
 		"r":         "",
 		"_":         "",
 	}
+
+	LoginInfo = map[string]string{}
 )
