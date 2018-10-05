@@ -22,3 +22,7 @@ func CheckErr(e error) {
 func GetTimestamp() int64 {
 	return time.Now().UnixNano() / 1000000
 }
+
+func SleepSec(sec int) {
+	time.Sleep(time.Duration(sec) * time.Second)
+}

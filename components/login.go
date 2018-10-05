@@ -11,6 +11,24 @@ import (
 	"strconv"
 )
 
+func Login() {
+	uuid, err := GetQRuuid()
+	CheckErr(err)
+	fmt.Println("Got the uuid of QR code: " + uuid)
+
+	fmt.Println("Downloading QR code.")
+	err = GetQR(uuid)
+	CheckErr(err)
+	fmt.Println("Please scan the QR code to log in.")
+
+	for isLoggedIn := false; !isLoggedIn; SleepSec(1) {
+		fmt.Println("Checking the status of log in.")
+		if CheckLogin(uuid) == 200 {
+			isLoggedIn = true
+		}
+	}
+}
+
 func GetQRuuid() (string, error) {
 	client := http.Client{}
 
@@ -57,6 +75,7 @@ func GetQR(uuid string) error {
 }
 
 func CheckLogin(uuid string) int {
+	var status int = 0
 	client := http.Client{}
 
 	CheckLoginParams["uuid"] = uuid
@@ -86,10 +105,21 @@ func CheckLogin(uuid string) int {
 
 	re := regexp.MustCompile(`^window.code=(\d+);`)
 	matches := re.FindStringSubmatch(string(bodyBytes))
-	status, err := strconv.Atoi(matches[1])
+	status, err = strconv.Atoi(matches[1])
 	if err != nil {
 		fmt.Println(err)
 		return 0
+	}
+
+	switch status {
+	case 200:
+		fmt.Println("Log in succeed.")
+	case 201:
+		fmt.Println("Please press confirm on your phone.")
+	case 408:
+		fmt.Println("Please scan the QR code.")
+	default:
+		fmt.Printf("Unknown return status code: %d\n", status)
 	}
 
 	return status
