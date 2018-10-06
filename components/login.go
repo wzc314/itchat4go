@@ -1,6 +1,7 @@
 package components
 
 import (
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -10,34 +11,54 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 var client http.Client
+var loginData = LoginData{}
 
 func init() {
+	loginData.info = make(map[string]string)
+
+	jar, _ := cookiejar.New(nil)
 	client = http.Client{
+		Jar: jar,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
+			return http.ErrUseLastResponse // Do not allow redirect
 		},
-	} // Do not allow redirect
-	jar, err := cookiejar.New(nil)
-	CheckErr(err)
-	client.Jar = jar
+	}
 }
 
 func Login() {
-	uuid, err := getQRuuid()
-	CheckErr(err)
+	var uuid string
+	for {
+		fmt.Println("Requesting uuid of QR code.")
+		if id, err := getQRuuid(); err != nil {
+			fmt.Println("Requesting uuid failed. Try again.")
+			PrintErr(err)
+		} else {
+			uuid = id
+			break
+		}
+		SleepSec(1)
+	}
 	fmt.Println("Got the uuid of QR code: " + uuid)
 
-	fmt.Println("Downloading QR code.")
-	err = getQR(uuid)
-	CheckErr(err)
+	for {
+		fmt.Println("Downloading QR code.")
+		if err := getQR(uuid); err != nil {
+			fmt.Println("Downloading QR code failed. Try again.")
+			PrintErr(err)
+		} else {
+			break
+		}
+		SleepSec(1)
+	}
+
 	fmt.Println("Please scan the QR code to login.")
 
 	for {
 		fmt.Println("Checking the status of login.")
-
 		if status, loginContent := checkLogin(uuid); status == 200 {
 			processLoginInfo(loginContent)
 			break
@@ -47,23 +68,28 @@ func Login() {
 }
 
 func getQRuuid() (string, error) {
-	UuidParams["_"] = strconv.Itoa(int(GetTimestamp()))
-	req, err := http.NewRequest("GET", UUID_URL, nil)
-	CheckErr(err)
+	UuidParams["_"] = GetTimestamp()
+	req, _ := http.NewRequest("GET", UUID_URL, nil)
 	req.URL.RawQuery = GetParams(UuidParams)
 	req.Header.Add("User-Agent", USER_AGENT)
 
 	resp, err := client.Do(req)
-	CheckErr(err)
+	if err != nil {
+		return "", err
+	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	CheckErr(err)
+	if err != nil {
+		return "", err
+	}
 
 	re := regexp.MustCompile(`^window.QRLogin.code = (\d+); window.QRLogin.uuid = "(\S+)";$`)
 	matches := re.FindStringSubmatch(string(bodyBytes))
 	status, err := strconv.Atoi(matches[1])
-	CheckErr(err)
+	if err != nil {
+		return "", err
+	}
 
 	if status != 200 {
 		return "", errors.New(fmt.Sprintf("QR login code is %d", status))
@@ -93,8 +119,8 @@ func checkLogin(uuid string) (int, string) {
 	var status, loginContent = 0, ""
 
 	CheckLoginParams["uuid"] = uuid
-	CheckLoginParams["_"] = strconv.Itoa(int(GetTimestamp()))
-	CheckLoginParams["r"] = strconv.Itoa(int(-GetTimestamp() / 1579))
+	CheckLoginParams["_"] = GetTimestamp()
+	CheckLoginParams["r"] = GetR()
 
 	req, err := http.NewRequest("GET", CHECKLOGIN_URL, nil)
 	if err != nil {
@@ -143,9 +169,9 @@ func checkLogin(uuid string) (int, string) {
 func processLoginInfo(loginContent string) {
 	re := regexp.MustCompile(`window.redirect_uri="(\S+)";`)
 	matches := re.FindStringSubmatch(loginContent)
-	LoginInfo["url"] = matches[1]
+	loginData.info["url"] = matches[1]
 
-	req, err := http.NewRequest("GET", LoginInfo["url"], nil)
+	req, err := http.NewRequest("GET", loginData.info["url"], nil)
 	CheckErr(err)
 	req.Header.Add("User-Agent", USER_AGENT)
 
@@ -154,5 +180,24 @@ func processLoginInfo(loginContent string) {
 	defer resp.Body.Close()
 
 	bodyBytes, err := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(bodyBytes))
+	result := LoginCallbackXMLResult{}
+	err = xml.Unmarshal(bodyBytes, &result)
+	loginData.baseReq.DeviceID = GetRandomID(15)
+	loginData.baseReq.SKey = result.SKey
+	loginData.baseReq.Sid = result.WXSid
+	loginData.baseReq.Uin = result.WXUin
+	loginData.info["pass_ticket"] = result.PassTicket
+	loginData.info["logintime"] = GetTimestamp()
+
+	loginData.info["url"] = loginData.info["url"][:strings.LastIndex(loginData.info["url"], "/")]
+
+	indexUrl := loginData.info["url"][strings.Index(loginData.info["url"], "//")+2:]
+	indexUrl = indexUrl[:strings.Index(indexUrl, "/")]
+	if detailedUrl, ok := DetailedUrls[indexUrl]; ok {
+		loginData.info["fileUrl"] = fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin", detailedUrl[0])
+		loginData.info["syncUrl"] = fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin", detailedUrl[1])
+	} else {
+		loginData.info["fileUrl"] = loginData.info["url"]
+		loginData.info["syncUrl"] = loginData.info["url"]
+	}
 }

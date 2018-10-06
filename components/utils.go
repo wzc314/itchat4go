@@ -1,7 +1,10 @@
 package components
 
 import (
+	"fmt"
+	"math/rand"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -19,10 +22,29 @@ func CheckErr(e error) {
 	}
 }
 
-func GetTimestamp() int64 {
-	return time.Now().UnixNano() / 1000000
+func PrintErr(e error) {
+	if e != nil {
+		fmt.Println(e)
+	}
+}
+
+func getTimestamp() int {
+	return int(time.Now().UnixNano() / 1000000)
+}
+
+func GetTimestamp() string {
+	return strconv.Itoa(getTimestamp())
+}
+
+func GetR() string {
+	return strconv.Itoa(-getTimestamp() / 1579)
 }
 
 func SleepSec(sec int) {
 	time.Sleep(time.Duration(sec) * time.Second)
+}
+
+func GetRandomID(n int) string {
+	rand.Seed(time.Now().Unix())
+	return "e" + strconv.FormatFloat(rand.Float64(), 'f', n+2, 64)[2:]
 }
