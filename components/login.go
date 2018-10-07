@@ -1,6 +1,7 @@
 package components
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -60,11 +61,14 @@ func Login() {
 	for {
 		fmt.Println("Checking the status of login.")
 		if status, loginContent := checkLogin(uuid); status == 200 {
-			processLoginInfo(loginContent)
+			err := processLoginInfo(loginContent)
+			CheckErr(err)
 			break
 		}
 		SleepSec(1)
 	}
+
+	webInit()
 }
 
 func getQRuuid() (string, error) {
@@ -79,13 +83,13 @@ func getQRuuid() (string, error) {
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 
 	re := regexp.MustCompile(`^window.QRLogin.code = (\d+); window.QRLogin.uuid = "(\S+)";$`)
-	matches := re.FindStringSubmatch(string(bodyBytes))
+	matches := re.FindStringSubmatch(string(b))
 	status, err := strconv.Atoi(matches[1])
 	if err != nil {
 		return "", err
@@ -137,12 +141,12 @@ func checkLogin(uuid string) (int, string) {
 	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println(err)
 		return status, loginContent
 	}
-	loginContent = string(bodyBytes)
+	loginContent = string(b)
 
 	re := regexp.MustCompile(`^window.code=(\d+);`)
 	matches := re.FindStringSubmatch(loginContent)
@@ -166,33 +170,37 @@ func checkLogin(uuid string) (int, string) {
 	return status, loginContent
 }
 
-func processLoginInfo(loginContent string) {
+func processLoginInfo(loginContent string) error {
 	re := regexp.MustCompile(`window.redirect_uri="(\S+)";`)
 	matches := re.FindStringSubmatch(loginContent)
 	loginData.info["url"] = matches[1]
 
-	req, err := http.NewRequest("GET", loginData.info["url"], nil)
-	CheckErr(err)
+	req, _ := http.NewRequest("GET", loginData.info["url"], nil)
 	req.Header.Add("User-Agent", USER_AGENT)
 
 	resp, err := client.Do(req)
-	CheckErr(err)
+	if err != nil {
+		return err
+	}
 	defer resp.Body.Close()
 
-	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	b, err := ioutil.ReadAll(resp.Body)
+	CheckErr(err)
 	result := LoginCallbackXMLResult{}
-	err = xml.Unmarshal(bodyBytes, &result)
+	err = xml.Unmarshal(b, &result)
+	if err != nil {
+		return err
+	}
+
 	loginData.baseReq.DeviceID = GetRandomID(15)
-	loginData.baseReq.SKey = result.SKey
+	loginData.baseReq.Skey = result.Skey
 	loginData.baseReq.Sid = result.WXSid
 	loginData.baseReq.Uin = result.WXUin
 	loginData.info["pass_ticket"] = result.PassTicket
 	loginData.info["logintime"] = GetTimestamp()
-
 	loginData.info["url"] = loginData.info["url"][:strings.LastIndex(loginData.info["url"], "/")]
 
-	indexUrl := loginData.info["url"][strings.Index(loginData.info["url"], "//")+2:]
-	indexUrl = indexUrl[:strings.Index(indexUrl, "/")]
+	indexUrl := req.URL.Hostname()
 	if detailedUrl, ok := DetailedUrls[indexUrl]; ok {
 		loginData.info["fileUrl"] = fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin", detailedUrl[0])
 		loginData.info["syncUrl"] = fmt.Sprintf("https://%s/cgi-bin/mmwebwx-bin", detailedUrl[1])
@@ -200,4 +208,29 @@ func processLoginInfo(loginContent string) {
 		loginData.info["fileUrl"] = loginData.info["url"]
 		loginData.info["syncUrl"] = loginData.info["url"]
 	}
+
+	return nil
+}
+
+func webInit() {
+	initPostData := map[string]interface{}{}
+	initPostData["BaseRequest"] = loginData.baseReq
+
+	jsonBytes, err := json.Marshal(initPostData)
+	CheckErr(err)
+
+	req, _ := http.NewRequest("POST", loginData.info["url"]+"/webwxinit", strings.NewReader(string(jsonBytes)))
+	req.URL.RawQuery = GetParams(map[string]string{"r": GetR()})
+	req.Header.Add("ContentType", JSON_HEADER)
+	req.Header.Add("User-Agent", USER_AGENT)
+
+	resp, err := client.Do(req)
+	CheckErr(err)
+	defer resp.Body.Close()
+
+	b, err := ioutil.ReadAll(resp.Body)
+	CheckErr(err)
+
+	initInfo := InitInfo{}
+	err = json.Unmarshal(b, &initInfo)
 }

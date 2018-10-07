@@ -46,5 +46,5 @@ func SleepSec(sec int) {
 
 func GetRandomID(n int) string {
 	rand.Seed(time.Now().Unix())
-	return "e" + strconv.FormatFloat(rand.Float64(), 'f', n+2, 64)[2:]
+	return "e" + strconv.FormatFloat(rand.Float64(), 'f', n, 64)[2:]
 }
