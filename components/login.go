@@ -8,28 +8,12 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
-	"net/http/cookiejar"
 	"net/url"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
 )
-
-var client http.Client
-var loginData = LoginData{}
-
-func init() {
-	loginData.info = make(map[string]string)
-
-	jar, _ := cookiejar.New(nil)
-	client = http.Client{
-		Jar: jar,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse // Do not allow redirect
-		},
-	}
-}
 
 func Login() {
 	var uuid string
@@ -70,6 +54,7 @@ func Login() {
 	}
 
 	webInit()
+	showMobileLogin()
 }
 
 func getQRuuid() (string, error) {
@@ -220,10 +205,10 @@ func processLoginInfo(loginContent string) error {
 }
 
 func webInit() {
-	initPostData := map[string]interface{}{}
-	initPostData["BaseRequest"] = loginData.baseReq
+	data := map[string]interface{}{}
+	data["BaseRequest"] = loginData.baseReq
 
-	b, err := json.Marshal(initPostData)
+	b, err := json.Marshal(data)
 	CheckErr(err)
 
 	req, _ := http.NewRequest("POST", loginData.info["url"]+"/webwxinit", strings.NewReader(string(b)))
@@ -244,4 +229,23 @@ func webInit() {
 
 	err = json.Unmarshal(b, &loginData.initInfo)
 	loginData.info["synckey"] = loginData.initInfo.SyncKey.ToString()
+}
+
+func showMobileLogin() {
+	data := map[string]interface{}{}
+	data["BaseRequest"] = loginData.baseReq
+	data["Code"] = 3
+	data["FromUserName"] = loginData.initInfo.User.UserName
+	data["ToUserName"] = loginData.initInfo.User.UserName
+	data["ClientMsgId"] = GetTimestamp()
+
+	b, err := json.Marshal(data)
+	CheckErr(err)
+
+	req, _ := http.NewRequest("POST", loginData.info["url"]+"/webwxstatusnotify", strings.NewReader(string(b)))
+	req.Header.Add("ContentType", JSON_HEADER)
+	req.Header.Add("User-Agent", USER_AGENT)
+
+	_, err = client.Do(req)
+	PrintErr(err)
 }

@@ -6,4 +6,5 @@ import (
 
 func main() {
 	c.Login()
+	c.GetContact()
 }
