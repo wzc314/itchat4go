@@ -1,6 +1,9 @@
 package components
 
-import "encoding/xml"
+import (
+	"encoding/xml"
+	"fmt"
+)
 
 type LoginCallbackXMLResult struct {
 	XMLName     xml.Name `xml:"error"`
@@ -21,8 +24,8 @@ type BaseRequest struct {
 }
 
 type InitInfo struct {
-	User    User     `json:"User"`
-	SyncKey SyncKeys `json:"SyncKey"`
+	User    User    `json:"User"`
+	SyncKey SyncKey `json:"SyncKey"`
 }
 
 type User struct {
@@ -34,12 +37,20 @@ type User struct {
 	Signature  string `json:"Signature"`
 }
 
-type SyncKeys struct {
-	Count int       `json:"Count"`
-	List  []SyncKey `json:"List"`
+type SyncKey struct {
+	Count int  `json:"Count"`
+	List  []KV `json:"List"`
 }
 
-type SyncKey struct {
+type KV struct {
 	Key int64 `json:"Key"`
 	Val int64 `json:"Val"`
+}
+
+func (sk SyncKey) ToString() string {
+	var s string
+	for i := 0; i < sk.Count; i++ {
+		s = s + fmt.Sprintf("%d_%d|", sk.List[i].Key, sk.List[i].Val)
+	}
+	return s[:len(s)-1]
 }

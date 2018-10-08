@@ -11,21 +11,6 @@ const (
 )
 
 var (
-	UuidParams = map[string]string{
-		"appid": "wx782c26e4c19acffb",
-		"fun":   "new",
-		"lang":  "zh_CN",
-		"_":     "", // timestamp
-	}
-
-	CheckLoginParams = map[string]string{
-		"loginicon": "true",
-		"uuid":      "",
-		"tip":       "1",
-		"r":         "",
-		"_":         "",
-	}
-
 	DetailedUrls = map[string][2]string{
 		"wx2.qq.com":      {"file.wx2.qq.com", "webpush.wx2.qq.com"},
 		"wx8.qq.com":      {"file.wx8.qq.com", "webpush.wx8.qq.com"},

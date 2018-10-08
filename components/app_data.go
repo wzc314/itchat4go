@@ -1,6 +1,7 @@
 package components
 
 type LoginData struct {
-	baseReq BaseRequest
-	info    map[string]string
+	baseReq  BaseRequest
+	initInfo InitInfo
+	info     map[string]string
 }

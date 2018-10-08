@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"os"
 	"regexp"
 	"strconv"
@@ -72,9 +73,13 @@ func Login() {
 }
 
 func getQRuuid() (string, error) {
-	UuidParams["_"] = GetTimestamp()
 	req, _ := http.NewRequest("GET", UUID_URL, nil)
-	req.URL.RawQuery = GetParams(UuidParams)
+	req.URL.RawQuery = url.Values{
+		"appid": {"wx782c26e4c19acffb"},
+		"fun":   {"new"},
+		"lang":  {"zh_CN"},
+		"_":     {GetTimestamp()}, // _: timestamp
+	}.Encode()
 	req.Header.Add("User-Agent", USER_AGENT)
 
 	resp, err := client.Do(req)
@@ -122,16 +127,18 @@ func getQR(uuid string) error {
 func checkLogin(uuid string) (int, string) {
 	var status, loginContent = 0, ""
 
-	CheckLoginParams["uuid"] = uuid
-	CheckLoginParams["_"] = GetTimestamp()
-	CheckLoginParams["r"] = GetR()
-
 	req, err := http.NewRequest("GET", CHECKLOGIN_URL, nil)
 	if err != nil {
 		fmt.Println(err)
 		return status, loginContent
 	}
-	req.URL.RawQuery = GetParams(CheckLoginParams)
+	req.URL.RawQuery = url.Values{
+		"loginicon": {"true"},
+		"uuid":      {uuid},
+		"tip":       {"1"},
+		"r":         {GetR()},
+		"_":         {GetTimestamp()},
+	}.Encode()
 	req.Header.Add("User-Agent", USER_AGENT)
 
 	resp, err := client.Do(req)
@@ -216,11 +223,15 @@ func webInit() {
 	initPostData := map[string]interface{}{}
 	initPostData["BaseRequest"] = loginData.baseReq
 
-	jsonBytes, err := json.Marshal(initPostData)
+	b, err := json.Marshal(initPostData)
 	CheckErr(err)
 
-	req, _ := http.NewRequest("POST", loginData.info["url"]+"/webwxinit", strings.NewReader(string(jsonBytes)))
-	req.URL.RawQuery = GetParams(map[string]string{"r": GetR()})
+	req, _ := http.NewRequest("POST", loginData.info["url"]+"/webwxinit", strings.NewReader(string(b)))
+	req.URL.RawQuery = url.Values{
+		"r":           {GetR()},
+		"pass_ticket": {loginData.info["pass_ticket"]},
+		"lang":        {"zh_CN"},
+	}.Encode()
 	req.Header.Add("ContentType", JSON_HEADER)
 	req.Header.Add("User-Agent", USER_AGENT)
 
@@ -228,9 +239,9 @@ func webInit() {
 	CheckErr(err)
 	defer resp.Body.Close()
 
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err = ioutil.ReadAll(resp.Body)
 	CheckErr(err)
 
-	initInfo := InitInfo{}
-	err = json.Unmarshal(b, &initInfo)
+	err = json.Unmarshal(b, &loginData.initInfo)
+	loginData.info["synckey"] = loginData.initInfo.SyncKey.ToString()
 }
