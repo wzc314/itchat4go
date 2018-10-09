@@ -1,15 +1,15 @@
 package components
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
-func GetContact() (map[string]User, error) {
-	contacts := make(map[string]User)
-
+func GetContact() error {
 	req, _ := http.NewRequest("GET", loginData.info["url"]+"/webwxgetcontact", nil)
 	req.URL.RawQuery = url.Values{
 		"lang":        {"zh_CN"},
@@ -23,15 +23,28 @@ func GetContact() (map[string]User, error) {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return contacts, err
+		return err
 	}
 	defer resp.Body.Close()
 
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return contacts, err
+		return err
 	}
 
-	fmt.Println(string(b))
-	return contacts, err
+	memberList := MemberList{}
+	err = json.Unmarshal(b, &memberList)
+	CheckErr(err)
+
+	for i := 0; i < memberList.MemberCount; i++ {
+		contacts[memberList.Users[i].UserName] = memberList.Users[i]
+		if strings.HasPrefix(memberList.Users[i].UserName, "@@") {
+			chatroomList[memberList.Users[i].UserName] = memberList.Users[i]
+		}
+	}
+
+	for _, member := range contacts {
+		fmt.Println(member.NickName)
+	}
+	return nil
 }

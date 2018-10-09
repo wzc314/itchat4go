@@ -28,12 +28,17 @@ type InitInfo struct {
 	SyncKey SyncKey `json:"SyncKey"`
 }
 
+type MemberList struct {
+	MemberCount int    `json:"MemberCount"`
+	Users       []User `json:"MemberList"`
+}
+
 type User struct {
 	Uin        int64  `json:"Uin"`
 	UserName   string `json:"UserName"`
 	NickName   string `json:"NickName"`
 	RemarkName string `json:"RemarkName"`
-	Sex        int8   `json:"Sex"`
+	Sex        int8   `json:"Sex"` // 0: unset, 1: male, 2: female
 	Signature  string `json:"Signature"`
 }
 

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -55,6 +56,8 @@ func Login() {
 
 	webInit()
 	showMobileLogin()
+	GetContact()
+	exec.Command("clear")
 }
 
 func getQRuuid() (string, error) {
@@ -150,7 +153,7 @@ func checkLogin(uuid string) (int, string) {
 
 	switch status {
 	case 200:
-		fmt.Println("Log in succeed.")
+		fmt.Println("Login succeed initially.")
 	case 201:
 		fmt.Println("Please press confirm on your phone.")
 	case 408:
@@ -227,16 +230,19 @@ func webInit() {
 	b, err = ioutil.ReadAll(resp.Body)
 	CheckErr(err)
 
-	err = json.Unmarshal(b, &loginData.initInfo)
-	loginData.info["synckey"] = loginData.initInfo.SyncKey.ToString()
+	initInfo := InitInfo{}
+	err = json.Unmarshal(b, &initInfo)
+	CheckErr(err)
+	loginData.user = initInfo.User
+	loginData.info["synckey"] = initInfo.SyncKey.ToString()
 }
 
 func showMobileLogin() {
 	data := map[string]interface{}{}
 	data["BaseRequest"] = loginData.baseReq
 	data["Code"] = 3
-	data["FromUserName"] = loginData.initInfo.User.UserName
-	data["ToUserName"] = loginData.initInfo.User.UserName
+	data["FromUserName"] = loginData.user.UserName
+	data["ToUserName"] = loginData.user.UserName
 	data["ClientMsgId"] = GetTimestamp()
 
 	b, err := json.Marshal(data)

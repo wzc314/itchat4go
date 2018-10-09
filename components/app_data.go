@@ -6,13 +6,17 @@ import (
 )
 
 type LoginData struct {
-	baseReq  BaseRequest
-	initInfo InitInfo
-	info     map[string]string
+	baseReq BaseRequest
+	user    User
+	info    map[string]string
 }
 
-var client http.Client
-var loginData = LoginData{}
+var (
+	client       http.Client
+	loginData    = LoginData{}
+	contacts     = make(map[string]User)
+	chatroomList = make(map[string]User)
+)
 
 func init() {
 	loginData.info = make(map[string]string)
@@ -24,4 +28,8 @@ func init() {
 			return http.ErrUseLastResponse // Do not allow redirect
 		},
 	}
+}
+
+func GetLoginUserName() string {
+	return loginData.user.NickName
 }

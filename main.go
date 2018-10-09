@@ -1,10 +1,11 @@
 package main
 
 import (
+	"fmt"
 	c "itchat4go/components"
 )
 
 func main() {
 	c.Login()
-	c.GetContact()
+	fmt.Printf("Login succeed as %s", c.GetLoginUserName())
 }
